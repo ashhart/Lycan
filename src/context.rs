@@ -3,8 +3,20 @@
 /// Carries policy constraints, injected input, working directory for
 /// file sandboxing, and (future) audit/resource metadata.
 
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 use crate::capabilities::CapValue;
+
+/// Per-decision buffer for `runtime.publish`. `Rc<RefCell>` lets callers read
+/// it back after the executor consumes the `ExecutionContext`; `BTreeMap` keeps
+/// published keys deterministic.
+pub type PublishedBuffer = Rc<RefCell<BTreeMap<String, serde_json::Value>>>;
+
+pub fn new_published_buffer() -> PublishedBuffer {
+    Rc::new(RefCell::new(BTreeMap::new()))
+}
 
 /// What a program is allowed to do at runtime.
 #[derive(Debug, Clone)]
@@ -37,6 +49,13 @@ impl Default for ExecutionPolicy {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectionMode {
+    Greedy,
+    Weighted,
+    EpsilonGreedy,
+}
+
 /// Runtime context passed through the execution stack.
 #[derive(Debug, Clone)]
 pub struct ExecutionContext {
@@ -44,24 +63,58 @@ pub struct ExecutionContext {
     pub input: Option<CapValue>,
     /// Working directory for file sandbox. Set to capsule dir in server mode.
     pub working_dir: Option<PathBuf>,
+    pub selection_mode: SelectionMode,
+    pub selection_epsilon: f64,
+    /// Per-decision buffer for `runtime.publish` values. `None` means
+    /// `runtime.publish` is a no-op so the same capsule can run in contexts
+    /// that do not inspect published values.
+    pub published: Option<PublishedBuffer>,
 }
 
 impl ExecutionContext {
     #[allow(dead_code)]
     pub fn unrestricted() -> Self {
-        Self { policy: None, input: None, working_dir: None }
+        Self {
+            policy: None,
+            input: None,
+            working_dir: None,
+            selection_mode: SelectionMode::Greedy,
+            selection_epsilon: 0.10,
+            published: None,
+        }
     }
 
     pub fn with_policy(policy: ExecutionPolicy) -> Self {
-        Self { policy: Some(policy), input: None, working_dir: None }
+        Self {
+            policy: Some(policy),
+            input: None,
+            working_dir: None,
+            selection_mode: SelectionMode::Greedy,
+            selection_epsilon: 0.10,
+            published: None,
+        }
     }
 
     pub fn with_input(input: CapValue) -> Self {
-        Self { policy: None, input: Some(input), working_dir: None }
+        Self {
+            policy: None,
+            input: Some(input),
+            working_dir: None,
+            selection_mode: SelectionMode::Greedy,
+            selection_epsilon: 0.10,
+            published: None,
+        }
     }
 
     #[allow(dead_code)]
     pub fn full(policy: ExecutionPolicy, input: CapValue) -> Self {
-        Self { policy: Some(policy), input: Some(input), working_dir: None }
+        Self {
+            policy: Some(policy),
+            input: Some(input),
+            working_dir: None,
+            selection_mode: SelectionMode::Greedy,
+            selection_epsilon: 0.10,
+            published: None,
+        }
     }
 }

@@ -637,7 +637,10 @@ fn do_decide(state: &State, tenant: &str, job: &str, capsule: &str, body: &str, 
     apply_context_memory_to_graph(&mut ng, &memory, context_key);
 
     let working_dir = state.store.capsule_dir_in_job(tenant, job, capsule).ok();
-    let ctx = ExecutionContext { policy, input, working_dir };
+    let mut ctx = ExecutionContext::unrestricted();
+    ctx.policy = policy;
+    ctx.input = input;
+    ctx.working_dir = working_dir;
     let mut executor = GraphExecutor::new_with_context(ng, ctx);
     let result = match executor.run() {
         Ok(val) => format!("{val}"),

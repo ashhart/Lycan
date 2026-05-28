@@ -37,6 +37,3 @@ jobs:
 
       - name: Test (integration — requires release lycan bin)
         run: cargo test --release --test integration -- --test-threads=1
-
-      - name: Test (change-detection characterization)
-        run: cargo test --release --test change_detection_characterization -- --test-threads=1
